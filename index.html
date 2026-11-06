@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>BP TV - sonda</title>
+<style>
+ body{margin:0;background:#221E20;color:#fff;font:32px/1.35 Arial,sans-serif;padding:48px}
+ h1{color:#FFE500;font-size:48px;margin:0 0 24px} pre{font-size:26px;white-space:pre-wrap;color:#ddd}
+ #teclas{color:#FFE500}
+</style></head><body>
+<h1>BP TV · sonda VIDAA</h1>
+<div>Aperte as teclas do controle: setas, OK, Voltar, CH+/CH−, cores.</div>
+<div id="teclas">—</div>
+<pre id="out">rodando…</pre>
+<script>
+var R = { quando: new Date().toISOString(), ua: navigator.userAgent, tela: screen.width + 'x' + screen.height,
+  janela: innerWidth + 'x' + innerHeight, dpr: window.devicePixelRatio, origem: location.href, teclas: [] };
+function env(tipo){ try { var x = new XMLHttpRequest(); x.open('POST', '/log', true); x.setRequestHeader('Content-Type','text/plain'); x.send(JSON.stringify({ tipo: tipo, r: R })); } catch (e) {} }
+function mostra(){ document.getElementById('out').textContent = JSON.stringify(R, null, 1); }
+// funções do sistema Hisense/VIDAA expostas à página
+var fns = []; for (var k in window) { if (/^(Hisense|vowOS|hisense|omi|VIDAA)/i.test(k)) fns.push(k + ':' + typeof window[k]); }
+R.funcoes = fns;
+// persistência
+try { var n = +(localStorage.getItem('bptv.sonda.aberturas') || 0) + 1; localStorage.setItem('bptv.sonda.aberturas', n); R.aberturas = n; } catch (e) { R.aberturas = 'erro: ' + e; }
+// login Sankhya vindo de outro site (usuário inexistente)
+function testaLogin(url, rotulo){
+  return fetch(url, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+    body: '{"serviceName":"MobileLoginSP.login","requestBody":{"NOMUSU":{"$":"X_SONDA_BPTV"},"INTERNO":{"$":"x"},"KEEPCONNECTED":{"$":"S"}}}' })
+   .then(function (r) { return r.text().then(function (t) { R[rotulo] = 'LEU a resposta (HTTP ' + r.status + '): ' + t.slice(0, 80); }); },
+         function (e) { R[rotulo] = 'BLOQUEADO: ' + e; });
+}
+testaLogin('https://sankhya.bpone.group:8180/mge/service.sbr?serviceName=MobileLoginSP.login&outputType=json', 'login_producao')
+ .then(function () { mostra(); env('inicio'); });
+document.addEventListener('keydown', function (ev) {
+  var t = ev.keyCode + '/' + (ev.key || '') + '/' + (ev.code || '');
+  R.teclas.push(t); if (R.teclas.length > 30) R.teclas.shift();
+  document.getElementById('teclas').textContent = 'última: ' + t;
+  env('tecla'); mostra();
+  if (ev.keyCode === 8 || ev.keyCode === 461 || ev.keyCode === 27) { ev.preventDefault(); }
+}, true);
+window.addEventListener('beforeunload', function () { env('saindo'); });
+mostra();
+</script></body></html>
